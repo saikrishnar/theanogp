@@ -2,14 +2,33 @@ import numpy as np
 import numpy.random as rnd
 import numpy.linalg as linalg
 
+import scipy.constants as const
+
 import theano
 import theano.tensor as T
+from theano.sandbox.linalg import ops as sT
 
 class gp(object):
     def __init__(self, kernel, X, Y):
         self.kernel = kernel
         self.X = X
         self.Y = Y
+
+        self.th_hyp = self.kernel.th_hyp
+        self.th_X = self.kernel.th_X
+        self.th_N = self.kernel.th_N
+        self.th_D = self.kernel.th_D
+        self.th_K = self.kernel.th_K
+
+        self.th_Y = T.matrix('Y')
+
+        self.th_lml = (- 0.5 * sT.trace(T.dot(self.Y.T, T.dot(self.th_K, self.Y))) +
+                       - 0.5 * sT.det(self.th_K) +
+                       - 0.5 * self.th_N * T.log(2.0 * const.pi) )
+        self.th_dlml_dhyp = theano.grad(self.th_lml, self.th_hyp)
+
+        self.lml = theano.function([self.th_X, self.th_Y, self.th_hyp], self.th_lml)
+        self.dlml_dhyp = theano.function([self.th_X, self.th_Y, self.th_hyp], self.th_dlml_dhyp)
 
     def sample(self, hyp):
         K = self.kernel.K(self.X, hyp)
@@ -20,9 +39,6 @@ class gp(object):
         
         z = rnd.randn(self.X.shape[0])
         return np.dot(cK, z)
-
-    def lml(self, hyp):
-        pass
 
     def nlml(self, **kwargs):
         return -lml(kwargs)

@@ -8,7 +8,7 @@ import theano.tensor as T
 #import theano.sandbox.linalg.ops as sT
 from theano.sandbox.linalg import ops as sT
 
-import MLtools
+import mltools.prob as mlprob
 
 import time
 import os
@@ -42,8 +42,8 @@ cursig = np.array([[1., 0], [0, 1.]])
 # cursig = np.dot(x.T, x) / N
 
 # Compare to multivalued normal
-print 'MLtools calculation:'
-print np.sum(MLtools.mvnlogpdf(x, curmu, cursig))
+print 'mlprob calculation:'
+print np.sum(mlprob.mvnlogpdf(x, curmu, cursig))
 print 'Theano calculation'
 print fp(curmu, cursig)
 

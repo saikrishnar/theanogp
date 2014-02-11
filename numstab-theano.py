@@ -11,7 +11,7 @@ from theano.sandbox.linalg import ops as sT
 
 import GPy
 
-import MLtools
+import mltools.prob as mlprob
 
 import time
 
@@ -65,8 +65,8 @@ cursig = kern.K(z)
 # print la.slogdet(cursig)
 
 # Compare to multivalued normal
-print 'MLtools calculation:'
-print np.sum(MLtools.mvnlogpdf(x, curmu, cursig))
+print 'mlprob calculation:'
+print np.sum(mlprob.mvnlogpdf(x, curmu, cursig))
 print 'Theano calculations:'
 print fp(curmu, cursig)
 print fp1(curmu, cursig)
