@@ -3,31 +3,68 @@ import numpy as np
 import theano
 import theano.tensor as T
 
-class covSEard(object):
-    def __init__(self, D, log_sf=1.0, log_ard=None, hyp=None):
+class covBase(object):
+    def __init__(self, D):
         self.D = D
-        if (hyp == None):
-            if (log_ard == None):
-                log_ard = np.ones(D)
-            self.hyp = np.hstack(([log_sf, log_ard]))
-        else:
-            self.hyp = hyp
 
-        hyp = T.vector('hyp')
-        X = T.matrix('X')
+        self.th_hyp = T.vector('hyp')
+        self.th_X = T.matrix('X')
+        self.th_N = self.th_X.shape[0]
+        self.th_D = self.th_X.shape[1]
+
+    def _gen_deriv_functions(self):
+        self.th_dhyp, uhyp = theano.scan(lambda i, y, x: T.jacobian(y[i], x),
+                                         sequences=T.arange(self.th_K.shape[0]),
+                                         non_sequences=[self.th_K, self.th_hyp])
+        self.th_dX, ux = theano.scan(lambda i, y, x: T.jacobian(y[i], x),
+                                     sequences=T.arange(self.th_K.shape[0]),
+                                     non_sequences=[self.th_K, self.th_X])
+        
+        self.K = theano.function([self.th_X, self.th_hyp], self.th_K)
+        self.dK_dhyp = theano.function([self.th_X, self.th_hyp], self.th_dhyp, updates=uhyp)
+        self.dK_dX = theano.function([self.th_X, self.th_hyp], self.th_dX, updates=ux)
+
+    @property
+    def hypD(self):
+        raise NotImplementedError
+
+class covSEard(covBase):
+    def __init__(self, D):
+        super(covSEard, self).__init__(D)
 
         distmat = T.sum(
-            ((T.reshape(X, (X.shape[0], 1, X.shape[1]) ) - X) / hyp[1:])**2,
+            ((T.reshape(self.th_X, (self.th_X.shape[0], 1, self.th_X.shape[1]) ) - self.th_X) / self.th_hyp[1:])**2,
             2)
 
-        rbf = hyp[0] * T.exp(-distmat / (2.0))
-        drbf_dhyp, uhyp= theano.scan(lambda i, y, x: T.jacobian(y[i], x), sequences=T.arange(rbf.shape[0]), non_sequences=[rbf, hyp])
-        drbf_dX, ux = theano.scan(lambda i, y, x: T.jacobian(y[i], x), sequences=T.arange(rbf.shape[0]), non_sequences=[rbf, X])
+        self.th_K = self.th_hyp[0] * T.exp(-distmat / (2.0))
 
-        # drbf_dsf2, u = theano.scan(lambda i, y, x: T.jacobian(y[i], x), sequences=T.arange(rbf.shape[0]), non_sequences=[rbf, hypsf2])
-        # fdrbf_dsf2 = theano.function([X, hypsf2, hypard], drbf_dsf2, updates=u)
+        super(covSEard, self)._gen_deriv_functions()
 
+    @property
+    def hypD(self):
+        return self.D + 1
 
-        self.K = theano.function([X, hyp], rbf)
-        self.dK_dhyp = theano.function([X, hyp], drbf_dhyp, updates=uhyp)
-        self.dK_dX = theano.function([X, hyp], drbf_dX, updates=ux)
+class covSEardJ(covBase):
+    '''
+    covSEardJ
+    ARD Squared Exponential covariance function with added jitter.
+
+    Hyperparameters:
+     - 0      : sf2 (marginal variance of the GP)
+     - 1:(1+D): ard (length scales of each input dimension
+     - D+1    : jitter variance
+    '''
+    def __init__(self, D):
+        super(covSEardJ, self).__init__(D)
+
+        distmat = T.sum(
+            ((T.reshape(self.th_X, (self.th_X.shape[0], 1, self.th_X.shape[1]) ) - self.th_X) / self.th_hyp[1:-1])**2,
+            2)
+
+        self.th_K = self.th_hyp[0] * T.exp(-distmat / (2.0)) + T.eye(self.th_N) * self.th_hyp[-1]
+
+        super(covSEardJ, self)._gen_deriv_functions()
+
+    @property
+    def hypD(self):
+        return self.D + 2
