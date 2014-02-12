@@ -9,6 +9,7 @@ class covBase(object):
 
         self.th_hyp = T.vector('hyp')
         self.th_X = T.matrix('X')
+        self.th_Xc = T.matrix('Xc')
         self.th_N = self.th_X.shape[0]
         self.th_D = self.th_X.shape[1]
 
@@ -21,6 +22,7 @@ class covBase(object):
                                      non_sequences=[self.th_K, self.th_X])
         
         self.K = theano.function([self.th_X, self.th_hyp], self.th_K)
+        self.Kc = theano.function([self.th_X, self.th_Xc, self.th_hyp], self.th_Kc)
         self.dK_dhyp = theano.function([self.th_X, self.th_hyp], self.th_dhyp, updates=uhyp)
         self.dK_dX = theano.function([self.th_X, self.th_hyp], self.th_dX, updates=ux)
 
@@ -60,8 +62,12 @@ class covSEardJ(covBase):
         distmat = T.sum(
             ((T.reshape(self.th_X, (self.th_X.shape[0], 1, self.th_X.shape[1]) ) - self.th_X) / self.th_hyp[1:-1])**2,
             2)
+        self.th_K = self.th_hyp[0] * T.exp(-distmat / 2.0) + T.eye(self.th_N) * self.th_hyp[-1]
 
-        self.th_K = self.th_hyp[0] * T.exp(-distmat / (2.0)) + T.eye(self.th_N) * self.th_hyp[-1]
+        distmat2 = T.sum(
+            ((T.reshape(self.th_X, (self.th_X.shape[0], 1, self.th_X.shape[1]) ) - self.th_Xc) / self.th_hyp[1:-1])**2,
+            2)
+        self.th_Kc = self.th_hyp[0] * T.exp(-distmat2 / 2.0) + T.eye(self.th_N) * self.th_hyp[-1]
 
         super(covSEardJ, self)._gen_deriv_functions()
 
