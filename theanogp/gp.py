@@ -2,16 +2,17 @@ import numpy as np
 import numpy.random as rnd
 import numpy.linalg as linalg
 
+import scipy.optimize as opt
 import scipy.constants as const
-
-import time
 
 import theano
 import theano.tensor as T
 from theano.sandbox.linalg import ops as sT
 
+import mltools.simple_optimise as mlopt
+
 class gp(object):
-    def __init__(self, kernel, X, Y):
+    def __init__(self, kernel, X=None, Y=None):
         self.kernel = kernel
         self.X = X
         self.Y = Y
@@ -34,72 +35,53 @@ class gp(object):
                        - 0.5 * self.th_N * T.log(2.0 * const.pi) )
         self.th_dlml_dhyp = theano.grad(self.th_lml, self.th_hyp)
 
-        self.lml = theano.function([self.th_X, self.th_Y, self.th_hyp], self.th_lml)
-        self.dlml_dhyp = theano.function([self.th_X, self.th_Y, self.th_hyp], self.th_dlml_dhyp)
+        self.lml = theano.function([self.th_hyp, self.th_X, self.th_Y], self.th_lml)
+        self.dlml_dhyp = theano.function([self.th_hyp, self.th_X, self.th_Y], self.th_dlml_dhyp)
 
-    def sample(self, hyp):
-        K = self.kernel.K(self.X, hyp)
+    def sample_prior(self, hyp, X=None):
+        if (X == None):
+            if (self.X == None):
+                raise ValueError("If no X is passed, it needs to be present in the object.")
+            X = self.X
+
+        K = self.kernel.K(X, hyp)
         cK = linalg.cholesky(K)
 
         # Print smallest eigenvalue
         # print np.min(np.diag(cK)) ** 2.0
         
-        z = rnd.randn(self.X.shape[0])
+        z = rnd.randn(X.shape[0])
         return np.dot(cK, z)
 
-    def sample_post(self, W, X, Y, hyp):
-        Kxw = self.kernel.Kc(self.X, W, hyp)
-        Kxx = self.kernel.K(X)
-        m = Kxw.T.dot(Kxx).dot(Y)
+    def calc_post(self, hyp, W):
+        X = self.X
+        Y = self.Y
 
-        return linalg.cholesky(Kxw).dot(np.randn(X.shape[0], 1)) + m        
+        Kxx = self.kernel.K(X, hyp)
+        Kxw = self.kernel.Kc(X, W, hyp)
+        Kww = self.kernel.K(W, hyp)
+        m = Kxw.T.dot(linalg.inv(Kxx)).dot(Y)
+        cov = Kww - Kxw.T.dot(linalg.inv(Kxx)).dot(Kxw)
 
-    def nlml(self, **kwargs):
-        return -lml(kwargs)
+        return m, cov
 
-if __name__ == '__main__':
-    import kernels
-    import matplotlib.pyplot as plt
+    def sample_post(self, hyp, W):
+        m, cov = self.calc_post(hyp, W)
 
-    # X = np.atleast_2d([0., 1., 2., 3., 3.5, 4.]).T
-    # Y = np.atleast_2d([0., -1., -2., -3., -3.5, -4.]).T
-    # X = np.atleast_2d(np.linspace(0.0, 20.0, 120)).T
-    X = rnd.randn(10, 1)
-    hyp = [1., 1., 10**-1]
-    
-    k = kernels.covSEardJ(1)
-    d = gp(k, X, None)
+        return linalg.cholesky(cov).dot(rnd.randn(W.shape[0])) + m, m, cov
 
-    # Print out the likelihood of a few "typical" samples.
-    s = np.atleast_2d(d.sample(hyp)).T
-    print d.lml(X, s, hyp)
-    s = np.atleast_2d(d.sample(hyp)).T
-    print d.lml(X, s, hyp)
-    s = np.atleast_2d(d.sample(hyp)).T
-    print d.lml(X, s, hyp)
-    s = np.atleast_2d(d.sample(hyp)).T
-    print d.lml(X, s, hyp)
-    s = np.atleast_2d(d.sample(hyp)).T
-    print d.lml(X, s, hyp)
-    s = np.atleast_2d(d.sample(hyp)).T
-    print d.lml(X, s, hyp)
-    print ''
+    def nlml(self, hyp, X=None, Y=None):
+        if (X == None):
+            X = self.X
+        if (Y == None):
+            Y = self.Y
 
-    # Print out the likelihood for a few different hyperparameters
-    hypOpt = [1., 1., 1.]
-    print d.lml(X, s, hypOpt)
-    print hypOpt
-    print d.dlml_dhyp(X, s, hypOpt)
+        return -self.lml(hyp, X, Y)
 
-    print "Start optimisation"
-    while (1):
-        grad = d.dlml_dhyp(X, s, hypOpt)
-        
-        hypOpt += grad * 0.001
-        print hypOpt, grad, d.lml(X, s, hypOpt)
-        if np.sum(np.abs(grad)) < 10**-4:
-            break
-    
-    W = np.atleast_2d(np.linspace(-5.0, 25.0, 120)).T
-    plt.plot(W, d.sample_post(W, X, s, hyp))
-    plt.show()
+    def dnlml_dhyp(self, hyp, X=None, Y=None):
+        if (X == None):
+            X = self.X
+        if (Y == None):
+            Y = self.Y
+
+        return -self.dlml_dhyp(hyp, X, Y)

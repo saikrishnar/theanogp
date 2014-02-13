@@ -67,7 +67,7 @@ class covSEardJ(covBase):
         distmat2 = T.sum(
             ((T.reshape(self.th_X, (self.th_X.shape[0], 1, self.th_X.shape[1]) ) - self.th_Xc) / self.th_hyp[1:-1])**2,
             2)
-        self.th_Kc = self.th_hyp[0] * T.exp(-distmat2 / 2.0) + T.eye(self.th_N) * self.th_hyp[-1]
+        self.th_Kc = self.th_hyp[0] * T.exp(-distmat2 / 2.0) + T.eq(distmat2, 0) * self.th_hyp[-1]
 
         super(covSEardJ, self)._gen_deriv_functions()
 
