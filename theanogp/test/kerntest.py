@@ -8,7 +8,7 @@ import unittest
 import numpy as np
 import numpy.random as rnd
 
-import theanogp.kernels as kern
+import kernels as kern
 
 import GPy
 import matplotlib.pyplot as plt

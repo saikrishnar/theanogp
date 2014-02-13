@@ -4,6 +4,7 @@ import time
 import numpy as np
 import numpy.random as rnd
 
+import scipy.optimize as opt
 import scipy.io as sio
 
 import mltools.simple_optimise as mlopt
@@ -17,8 +18,9 @@ cwdata = sio.loadmat('cw1d.mat')
 X = np.array(cwdata['x'])
 Y = np.array(cwdata['y'])
 
-# sf2, sl, sn2
-hyp = [1., 0.01, 10**-1]
+# log(sf2), log(sl), log(sn2)
+hyp = [0., -1.0, 0.]
+# hyp = [1., 0.01, 10**-1]
 
 k = kernels.covSEardJ(1)
 d = gp.gp(k, X, Y)
@@ -31,7 +33,8 @@ print "Start optimisation"
 def opt_callback(x, dx=None, f=None):
 #     time.sleep(0.05)
     opt_callback.i += + 1
-    if ((opt_callback.i % 100) == 0):
+#     if ((opt_callback.i % 100) == 0):
+    if (True):
         sys.stdout.write(str(x) + ' ')
         if (dx != None):
             sys.stdout.write(str(dx) + ' ')
@@ -41,10 +44,15 @@ def opt_callback(x, dx=None, f=None):
         sys.stdout.write('\r')
 opt_callback.i = 0
 
-hyp = mlopt.gradient_descent(d.nlml, hyp, jac=d.dnlml_dhyp, args={'X':X, 'Y':Y}, tol=10**-4, options={'verbosity':1, 'max_eps':0.001, 'momentum':0.1}, callback=opt_callback, maxiter=5000)
-# hyp = opt.minimize(d.nlml, hypOpt, jac=d.dnlml_dhyp, args=(X, s), method='CG', callback=opt_callback)
+# hyp = mlopt.gradient_descent(d.nlml, hyp, jac=d.dnlml_dhyp, args={'X':X, 'Y':Y}, tol=10**-4, options={'verbosity':1, 'max_eps':0.001, 'momentum':0.1}, callback=opt_callback, maxiter=5000)
+optres = opt.minimize(d.nlml, hyp, jac=d.dnlml_dhyp, args=(X, Y), method='CG', callback=opt_callback)
+print ''
+print optres
+optres = opt.minimize(d.nlml, optres.x, jac=d.dnlml_dhyp, args=(X, Y), method='CG', callback=opt_callback)
+print ''
+print optres
 
-print hyp
+hyp = optres.x
 
 W = np.atleast_2d(np.linspace(-5.0, 5.0, 120)).T
 ps_mean, ps_var = d.calc_post(hyp, W)
@@ -56,4 +64,3 @@ plt.plot(W, ps_mean)
 plt.plot(W, ps_mean + 2.0*ps_var)
 plt.plot(W, ps_mean - 2.0*ps_var)
 plt.show()
-

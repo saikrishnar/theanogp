@@ -35,10 +35,10 @@ class covSEard(covBase):
         super(covSEard, self).__init__(D)
 
         distmat = T.sum(
-            ((T.reshape(self.th_X, (self.th_X.shape[0], 1, self.th_X.shape[1]) ) - self.th_X) / self.th_hyp[1:])**2,
+            ((T.reshape(self.th_X, (self.th_X.shape[0], 1, self.th_X.shape[1]) ) - self.th_X) / T.exp(self.th_hyp[1:]))**2,
             2)
 
-        self.th_K = self.th_hyp[0] * T.exp(-distmat / (2.0))
+        self.th_K = T.exp(self.th_hyp[0]) * T.exp(-distmat / (2.0))
 
         super(covSEard, self)._gen_deriv_functions()
 
@@ -60,14 +60,14 @@ class covSEardJ(covBase):
         super(covSEardJ, self).__init__(D)
 
         distmat = T.sum(
-            ((T.reshape(self.th_X, (self.th_X.shape[0], 1, self.th_X.shape[1]) ) - self.th_X) / self.th_hyp[1:-1])**2,
+            ((T.reshape(self.th_X, (self.th_X.shape[0], 1, self.th_X.shape[1]) ) - self.th_X) / T.exp(self.th_hyp[1:-1]))**2,
             2)
-        self.th_K = self.th_hyp[0] * T.exp(-distmat / 2.0) + T.eye(self.th_N) * self.th_hyp[-1]
+        self.th_K = T.exp(self.th_hyp[0]) * T.exp(-distmat / 2.0) + T.eye(self.th_N) * T.exp(self.th_hyp[-1])
 
         distmat2 = T.sum(
-            ((T.reshape(self.th_X, (self.th_X.shape[0], 1, self.th_X.shape[1]) ) - self.th_Xc) / self.th_hyp[1:-1])**2,
+            ((T.reshape(self.th_X, (self.th_X.shape[0], 1, self.th_X.shape[1]) ) - self.th_Xc) / T.exp(self.th_hyp[1:-1]))**2,
             2)
-        self.th_Kc = self.th_hyp[0] * T.exp(-distmat2 / 2.0) + T.eq(distmat2, 0) * self.th_hyp[-1]
+        self.th_Kc = T.exp(self.th_hyp[0]) * T.exp(-distmat2 / 2.0) + T.eq(distmat2, 0) * T.exp(self.th_hyp[-1])
 
         super(covSEardJ, self)._gen_deriv_functions()
 

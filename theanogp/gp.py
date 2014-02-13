@@ -26,16 +26,16 @@ class gp(object):
         self.th_Y = T.matrix('Y')
 
         prec = sT.matrix_inverse(self.th_K)
-        # T.sum(T.log(sT.diag(sT.cholesky(sigma))))
-        # self.th_lml = (- 0.5 * sT.trace(T.dot(self.th_Y.T, T.dot(prec, self.th_Y))) +
-        #                - T.sum(T.log(sT.diag(sT.cholesky(self.th_K)))) +
-        #                - 0.5 * self.th_N * T.log(2.0 * const.pi) )
+        self.th_lml_stable = (- 0.5 * sT.trace(T.dot(self.th_Y.T, T.dot(prec, self.th_Y))) +
+                       - T.sum(T.log(sT.diag(sT.cholesky(self.th_K)))) +
+                       - 0.5 * self.th_N * T.log(2.0 * const.pi) )
         self.th_lml = (- 0.5 * sT.trace(T.dot(self.th_Y.T, T.dot(prec, self.th_Y))) +
                        - 0.5 * T.log(sT.det(self.th_K)) +
                        - 0.5 * self.th_N * T.log(2.0 * const.pi) )
         self.th_dlml_dhyp = theano.grad(self.th_lml, self.th_hyp)
 
         self.lml = theano.function([self.th_hyp, self.th_X, self.th_Y], self.th_lml)
+        self.lml_stable = theano.function([self.th_hyp, self.th_X, self.th_Y], self.th_lml_stable)
         self.dlml_dhyp = theano.function([self.th_hyp, self.th_X, self.th_Y], self.th_dlml_dhyp)
 
     def sample_prior(self, hyp, X=None):
@@ -76,7 +76,15 @@ class gp(object):
         if (Y == None):
             Y = self.Y
 
-        return -self.lml(hyp, X, Y)
+        nlml = -self.lml(hyp, X, Y)
+        if (nlml == float('-inf')):
+            # Use numerically stable but slow calculation
+            nlml = -self.lml_stable(hyp, X, Y)
+
+        # print hyp
+        # print nlml
+
+        return nlml
 
     def dnlml_dhyp(self, hyp, X=None, Y=None):
         if (X == None):
