@@ -9,8 +9,9 @@ import scipy.io as sio
 
 import mltools.simple_optimise as mlopt
 
-import theanogp.gp as gp
-import theanogp.kernels as kernels
+sys.path.append('..')
+import gp as gp
+import kernels as kernels
 
 import matplotlib.pyplot as plt
 
@@ -42,6 +43,7 @@ def opt_callback(x, dx=None, f=None):
             sys.stdout.write(str(f) + ' ')
         sys.stdout.write(' ' + str(opt_callback.i) + ' ')
         sys.stdout.write('\r')
+        print ''
 opt_callback.i = 0
 
 # hyp = mlopt.gradient_descent(d.nlml, hyp, jac=d.dnlml_dhyp, args={'X':X, 'Y':Y}, tol=10**-4, options={'verbosity':1, 'max_eps':0.001, 'momentum':0.1}, callback=opt_callback, maxiter=5000)
