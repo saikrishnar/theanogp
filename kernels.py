@@ -4,9 +4,17 @@ import theano
 import theano.tensor as T
 
 class covBase(object):
+    '''
+    covBase
+    Base class for all covariance functions. The following procedures need to be carried out for all kernel functions,
+    and are therefore done here:
+      - Define the Theano variables for
+      - Compile the Theano functions after the derived classes have defined the computation.
+    '''
     def __init__(self, D):
         self.D = D
 
+        # Define all the Theano variables
         self.th_hyp = T.vector('hyp')
         self.th_X = T.matrix('X')
         self.th_Xc = T.matrix('Xc')
@@ -14,14 +22,27 @@ class covBase(object):
         self.th_D = self.th_X.shape[1]
 
     def _gen_deriv_functions(self):
+        '''
+        _gen_deriv_functions
+        To be called by the derived class to compile all the required functions.
+        '''
+
+        ##################################
+        # Define some Theano derivatives
+        # Derivative w.r.t. the hyperparameters
         self.th_dhyp, uhyp = theano.scan(lambda i, y, x: T.jacobian(y[i], x),
                                          sequences=T.arange(self.th_K.shape[0]),
                                          non_sequences=[self.th_K, self.th_hyp])
+        # Derivative w.r.t. the inputs
         self.th_dX, ux = theano.scan(lambda i, y, x: T.jacobian(y[i], x),
                                      sequences=T.arange(self.th_K.shape[0]),
                                      non_sequences=[self.th_K, self.th_X])
-        
+
+        ##################################
+        # Compilation
+        # Kxx: self covariance matrix
         self.K = theano.function([self.th_X, self.th_hyp], self.th_K)
+        # Kxy: cross covariance matrix
         self.Kc = theano.function([self.th_X, self.th_Xc, self.th_hyp], self.th_Kc)
         self.dK_dhyp = theano.function([self.th_X, self.th_hyp], self.th_dhyp, updates=uhyp)
         self.dK_dX = theano.function([self.th_X, self.th_hyp], self.th_dX, updates=ux)
