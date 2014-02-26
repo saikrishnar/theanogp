@@ -2,14 +2,11 @@ import numpy as np
 import numpy.random as rnd
 import numpy.linalg as linalg
 
-import scipy.optimize as opt
 import scipy.constants as const
 
 import theano
 import theano.tensor as T
 from theano.sandbox.linalg import ops as sT
-
-import mltools.simple_optimise as mlopt
 
 class gp(object):
     def __init__(self, kernel, X=None, Y=None):
@@ -43,8 +40,8 @@ class gp(object):
         self.dlml_dhyp = theano.function([self.th_hyp, self.th_X, self.th_Y], self.th_dlml_dhyp)
 
     def sample_prior(self, hyp, X=None):
-        if (X == None):
-            if (self.X == None):
+        if X is None:
+            if self.X is None:
                 raise ValueError("If no X is passed, it needs to be present in the object.")
             X = self.X
 
@@ -78,7 +75,7 @@ class gp(object):
             Y = self.Y
 
         nlml = -self.lml(hyp, X, Y)
-        if (nlml == float('-inf')):
+        if (nlml == float('-inf')) or (nlml == float('inf')):
             # Use numerically stable but slow calculation
             nlml = -self.lml_stable(hyp, X, Y)
 

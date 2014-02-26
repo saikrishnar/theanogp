@@ -1,6 +1,7 @@
 import numpy as np
 
 import theano
+import theano.ifelse as theanoifelse
 import theano.tensor as T
 
 class covBase(object):
@@ -55,11 +56,14 @@ class covSEard(covBase):
     def __init__(self, D):
         super(covSEard, self).__init__(D)
 
+        self.th_sf2 = self.th_hyp[0] * 2.0
+        self.th_ard = self.th_hyp[1:]
+
         distmat = T.sum(
-            ((T.reshape(self.th_X, (self.th_X.shape[0], 1, self.th_X.shape[1]) ) - self.th_X) / T.exp(self.th_hyp[1:]))**2,
+            ((T.reshape(self.th_X, (self.th_X.shape[0], 1, self.th_X.shape[1]) ) - self.th_X) / T.exp(self.th_ard))**2,
             2)
 
-        self.th_K = T.exp(self.th_hyp[0]) * T.exp(-distmat / (2.0))
+        self.th_K = T.exp(self.th_sf2) * T.exp(-distmat / (2.0))
 
         super(covSEard, self)._gen_deriv_functions()
 
@@ -77,18 +81,22 @@ class covSEardJ(covBase):
      - 1:(1+D): ard (length scales of each input dimension
      - D+1    : jitter variance
     '''
-    def __init__(self, D):
+    def __init__(self, D, minjitter=10**-8):
         super(covSEardJ, self).__init__(D)
 
+        self.th_sf2 = self.th_hyp[0] * 2.0
+        self.th_ard = self.th_hyp[1:-1]
+        self.th_sn2 = theanoifelse.ifelse(T.lt(2.0 * self.th_hyp[-1], np.log(minjitter)), np.log(minjitter), self.th_hyp[-1] * 2.0)
+
         distmat = T.sum(
-            ((T.reshape(self.th_X, (self.th_X.shape[0], 1, self.th_X.shape[1]) ) - self.th_X) / T.exp(self.th_hyp[1:-1]))**2,
+            ((T.reshape(self.th_X, (self.th_X.shape[0], 1, self.th_X.shape[1]) ) - self.th_X) / T.exp(self.th_ard))**2,
             2)
-        self.th_K = T.exp(self.th_hyp[0]) * T.exp(-distmat / 2.0) + T.eye(self.th_N) * T.exp(self.th_hyp[-1])
+        self.th_K = T.exp(self.th_sf2) * T.exp(-distmat / 2.0) + T.eye(self.th_N) * T.exp(self.th_sn2)
 
         distmat2 = T.sum(
-            ((T.reshape(self.th_X, (self.th_X.shape[0], 1, self.th_X.shape[1]) ) - self.th_Xc) / T.exp(self.th_hyp[1:-1]))**2,
+            ((T.reshape(self.th_X, (self.th_X.shape[0], 1, self.th_X.shape[1]) ) - self.th_Xc) / T.exp(self.th_ard))**2,
             2)
-        self.th_Kc = T.exp(self.th_hyp[0]) * T.exp(-distmat2 / 2.0) + T.eq(distmat2, 0) * T.exp(self.th_hyp[-1])
+        self.th_Kc = T.exp(self.th_sf2) * T.exp(-distmat2 / 2.0) + T.eq(distmat2, 0) * T.exp(self.th_sn2)
 
         super(covSEardJ, self)._gen_deriv_functions()
 
