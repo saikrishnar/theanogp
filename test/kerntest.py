@@ -3,11 +3,13 @@
 # Simple tests to confirm the consistancy between these functions here and the
 # standard pdf functions for single variables.
 ###############################################################################
+import sys
 import unittest
 
 import numpy as np
 import numpy.random as rnd
 
+sys.path.append('..')
 import kernels as kern
 
 import GPy
@@ -19,10 +21,10 @@ class TestSequenceFunctions(unittest.TestCase):
         self.N = 4
         self.X = rnd.randn(self.N, self.D)
 
-        ard = list(rnd.randn(self.D))
-        self.hyp = [2.0] + ard + [10**-3]
+        ard = list(0.1 * rnd.randn(self.D))
+        self.hyp = [0.5 * np.log(2.0)] + ard + [np.log(10**-3)]
 
-        self.gpyk = GPy.kern.rbf(self.D, 2.0, lengthscale=ard, ARD=True) + GPy.kern.white(self.D, 10**-3)
+        self.gpyk = GPy.kern.rbf(self.D, 2.0, lengthscale=np.exp(np.array(ard)), ARD=True) + GPy.kern.white(self.D, 10**-6)
         self.k = kern.covSEardJ(self.D)
 
     def test_self_kern(self):
@@ -30,6 +32,7 @@ class TestSequenceFunctions(unittest.TestCase):
         K = self.k.K(self.X, self.hyp)
 
         diff = np.sum(np.abs(K - gpyK))
+
         self.assertTrue(diff < 10**-10)
         
     def test_cross_kern(self):
@@ -41,7 +44,8 @@ class TestSequenceFunctions(unittest.TestCase):
         self.assertTrue(np.all(K.shape == gpyK.shape))
 
         diff = np.sum(np.abs(K - gpyK))
-        self.assertTrue(diff < 10**10)
+
+        self.assertTrue(diff < 10**-10)
 
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestSequenceFunctions)

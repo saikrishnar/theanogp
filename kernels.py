@@ -1,5 +1,7 @@
 import numpy as np
 
+import scipy.constants as const
+
 import theano
 import theano.ifelse as theanoifelse
 import theano.tensor as T
@@ -56,14 +58,14 @@ class covSEard(covBase):
     def __init__(self, D):
         super(covSEard, self).__init__(D)
 
-        self.th_sf2 = self.th_hyp[0] * 2.0
-        self.th_ard = self.th_hyp[1:]
+        self.th_sf2 = T.exp(self.th_hyp[0] * 2.0)
+        self.th_ard = T.exp(self.th_hyp[1:])
 
         distmat = T.sum(
-            ((T.reshape(self.th_X, (self.th_X.shape[0], 1, self.th_X.shape[1]) ) - self.th_X) / T.exp(self.th_ard))**2,
+            ((T.reshape(self.th_X, (self.th_X.shape[0], 1, self.th_X.shape[1]) ) - self.th_X) / self.th_ard)**2,
             2)
 
-        self.th_K = T.exp(self.th_sf2) * T.exp(-distmat / (2.0))
+        self.th_K = self.th_sf2 * T.exp(-distmat / (2.0))
 
         super(covSEard, self)._gen_deriv_functions()
 
@@ -77,29 +79,65 @@ class covSEardJ(covBase):
     ARD Squared Exponential covariance function with added jitter.
 
     Hyperparameters:
-     - 0      : sf2 (marginal variance of the GP)
+     - 0      : sf (marginal stddev of the GP)
      - 1:(1+D): ard (length scales of each input dimension
-     - D+1    : jitter variance
+     - D+1    : jitter stddev
     '''
     def __init__(self, D, minjitter=10**-8):
         super(covSEardJ, self).__init__(D)
 
-        self.th_sf2 = self.th_hyp[0] * 2.0
-        self.th_ard = self.th_hyp[1:-1]
-        self.th_sn2 = theanoifelse.ifelse(T.lt(2.0 * self.th_hyp[-1], np.log(minjitter)), np.log(minjitter), self.th_hyp[-1] * 2.0)
+        self.th_sf2 = T.exp(self.th_hyp[0] * 2.0)
+        self.th_ard = T.exp(self.th_hyp[1:-1])
+        self.th_sn2 = T.exp(theanoifelse.ifelse(T.lt(2.0 * self.th_hyp[-1], np.log(minjitter)), np.log(minjitter), self.th_hyp[-1] * 2.0))
 
-        distmat = T.sum(
-            ((T.reshape(self.th_X, (self.th_X.shape[0], 1, self.th_X.shape[1]) ) - self.th_X) / T.exp(self.th_ard))**2,
+        distmat_sq = T.sum(
+            ((T.reshape(self.th_X, (self.th_X.shape[0], 1, self.th_X.shape[1]) ) - self.th_X) / self.th_ard)**2,
             2)
-        self.th_K = T.exp(self.th_sf2) * T.exp(-distmat / 2.0) + T.eye(self.th_N) * T.exp(self.th_sn2)
+        self.th_K = self.th_sf2 * T.exp(-distmat_sq / 2.0) + T.eye(self.th_N) * self.th_sn2
 
-        distmat2 = T.sum(
-            ((T.reshape(self.th_X, (self.th_X.shape[0], 1, self.th_X.shape[1]) ) - self.th_Xc) / T.exp(self.th_ard))**2,
+        distmat_c_sq = T.sum(
+            ((T.reshape(self.th_X, (self.th_X.shape[0], 1, self.th_X.shape[1]) ) - self.th_Xc) / self.th_ard)**2,
             2)
-        self.th_Kc = T.exp(self.th_sf2) * T.exp(-distmat2 / 2.0) + T.eq(distmat2, 0) * T.exp(self.th_sn2)
+        self.th_Kc = self.th_sf2 * T.exp(-distmat_c_sq / 2.0) + T.eq(distmat_c_sq, 0) * self.th_sn2
 
         super(covSEardJ, self)._gen_deriv_functions()
 
     @property
     def hypD(self):
         return self.D + 2
+
+class covPeriodicJ(covBase):
+    '''
+    covPeriodic
+    Periodic covariance function with added jitter.
+
+    Hyperparameters:
+     - 0: log(sf) (marginal stddev of the GP)
+     - 1: log(p) (period)
+     - 2: log(l) (length scale of the GP)
+     - 3: log(sn) (jitter stddev)
+    '''
+
+    def __init__(self, D, minjitter=10**-8):
+        super(covPeriodicJ, self).__init__(D)
+
+        self.th_sf2 = T.exp(self.th_hyp[0] * 2.0)
+        self.th_p = T.exp(self.th_hyp[1])
+        self.th_l2 = T.exp(self.th_hyp[2] * 2.0)
+        self.th_sn2 = T.exp(theanoifelse.ifelse(T.lt(2.0 * self.th_hyp[-1], np.log(minjitter)), np.log(minjitter), self.th_hyp[-1] * 2.0))
+
+        distmat = T.sum(
+            ((T.reshape(self.th_X, (self.th_X.shape[0], 1, self.th_X.shape[1]) ) - self.th_X)),
+            2)
+        self.th_K = self.th_sf2 * T.exp(- 2.0 / self.th_l2 * T.sin(const.pi * distmat / self.th_p)**2) + T.eye(self.th_N) * self.th_sn2
+
+        distmat_c = T.sum(
+            ((T.reshape(self.th_X, (self.th_X.shape[0], 1, self.th_X.shape[1]) ) - self.th_Xc)),
+            2)
+        self.th_Kc = self.th_sf2 * T.exp(- 2.0 / self.th_l2 * T.sin(const.pi * distmat_c / self.th_p)**2) + T.eq(distmat_c, 0) * self.th_sn2
+
+        super(covPeriodicJ, self)._gen_deriv_functions()
+
+    @property
+    def hypD(self):
+        return 3
