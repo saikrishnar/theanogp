@@ -14,12 +14,20 @@ class covBase(object):
       - Define the Theano variables for
       - Compile the Theano functions after the derived classes have defined the computation.
     '''
-    def __init__(self, D):
+    def __init__(self, D, th_X, th_hyp):
         self.D = D
 
         # Define all the Theano variables
-        self.th_hyp = T.vector('hyp')
-        self.th_X = T.matrix('X')
+        if th_hyp is None:
+            self.th_hyp = T.vector('hyp')
+        else:
+            self.th_hyp = th_hyp
+
+        if th_X is None:
+            self.th_X = T.matrix('X')
+        else:
+            self.th_X = th_X
+
         self.th_Xc = T.matrix('Xc')
         self.th_N = self.th_X.shape[0]
         self.th_D = self.th_X.shape[1]
@@ -55,8 +63,8 @@ class covBase(object):
         raise NotImplementedError
 
 class covSEard(covBase):
-    def __init__(self, D):
-        super(covSEard, self).__init__(D)
+    def __init__(self, D, th_X=None, th_hyp=None):
+        super(covSEard, self).__init__(D, th_X, th_hyp)
 
         self.th_sf2 = T.exp(self.th_hyp[0] * 2.0)
         self.th_ard = T.exp(self.th_hyp[1:])
@@ -83,8 +91,8 @@ class covSEardJ(covBase):
      - 1:(1+D): ard (length scales of each input dimension
      - D+1    : jitter stddev
     '''
-    def __init__(self, D, minjitter=10**-8):
-        super(covSEardJ, self).__init__(D)
+    def __init__(self, D, th_X=None, th_hyp=None, minjitter=10**-8):
+        super(covSEardJ, self).__init__(D, th_X, th_hyp)
 
         self.th_sf2 = T.exp(self.th_hyp[0] * 2.0)
         self.th_ard = T.exp(self.th_hyp[1:-1])
@@ -118,8 +126,8 @@ class covPeriodicJ(covBase):
      - 3: log(sn) (jitter stddev)
     '''
 
-    def __init__(self, D, minjitter=10**-8):
-        super(covPeriodicJ, self).__init__(D)
+    def __init__(self, D, th_X=None, th_hyp=None, minjitter=10**-8):
+        super(covPeriodicJ, self).__init__(D, th_X, th_hyp)
 
         self.th_sf2 = T.exp(self.th_hyp[0] * 2.0)
         self.th_p = T.exp(self.th_hyp[1])
