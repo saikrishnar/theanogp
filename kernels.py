@@ -75,6 +75,11 @@ class covSEard(covBase):
 
         self.th_K = self.th_sf2 * T.exp(-distmat / (2.0))
 
+        distmat_c_sq = T.sum(
+            ((T.reshape(self.th_X, (self.th_X.shape[0], 1, self.th_X.shape[1]) ) - self.th_Xc) / self.th_ard)**2,
+            2)
+        self.th_Kc = self.th_sf2 * T.exp(-distmat_c_sq / 2.0)
+
         super(covSEard, self)._gen_deriv_functions()
 
     @property
