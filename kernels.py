@@ -87,9 +87,9 @@ class covSEardJ(covBase):
     ARD Squared Exponential covariance function with added jitter.
 
     Hyperparameters:
-     - 0      : sf (marginal stddev of the GP)
-     - 1:(1+D): ard (length scales of each input dimension
-     - D+1    : jitter stddev
+     - 0      : LOG sf (marginal stddev of the GP)
+     - 1:(1+D): LOG ard (length scales of each input dimension)
+     - D+1    : LOG jitter stddev
     '''
     def __init__(self, D, th_X=None, th_hyp=None, minjitter=10**-8):
         super(covSEardJ, self).__init__(D, th_X, th_hyp)
