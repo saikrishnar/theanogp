@@ -62,6 +62,10 @@ class covBase(object):
     def hypD(self):
         raise NotImplementedError
 
+    
+    def print_hyp(self):
+        raise NotImplementedError()
+
 class covSEard(covBase):
     def __init__(self, D, th_X=None, th_hyp=None):
         super(covSEard, self).__init__(D, th_X, th_hyp)
@@ -118,6 +122,18 @@ class covSEardJ(covBase):
     @property
     def hypD(self):
         return self.D + 2
+
+        
+    def print_hyp(self, hyp=None):
+        if hyp is None:
+            print "log(sf)"
+            print "log(ard *length scales*)"
+            print "log(jitter stddev)"
+        else:
+            print "log(sf)           : %f \t\t sf           : %f" % (hyp[0], np.exp(hyp[0]))
+            for i, h in enumerate(hyp[1:-1]):
+                print "log(ard[%i])       : %f \t\t ard[%i]       : %f" % (i, h, i, np.exp(h))
+            print "log(jitter stddev): %f \t\t jitter stddev: %e" % (hyp[-1], np.exp(hyp[-1]))
 
 class covPeriodicJ(covBase):
     '''
